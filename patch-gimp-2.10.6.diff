@@ -1,0 +1,67 @@
+This patch unites Save & Export in Gimp back
+
+Shame on you Gimp authors for splitting "Save" and "Export" features
+and for arguing that everyone who dislikes the new behaviour is an
+idiot and should use MSPAINT instead of their super-duper professional
+GIMP!
+
+Index: gimp-2.10.6/app/actions/file-commands.c
+===================================================================
+--- gimp-2.10.6.orig/app/actions/file-commands.c
++++ gimp-2.10.6/app/actions/file-commands.c
+@@ -236,6 +236,8 @@ file_save_cmd_callback (GtkAction *actio
+     return;
+ 
+   file = gimp_image_get_file (image);
++  if (! file)
++    file = gimp_image_get_imported_file (image);
+ 
+   switch (save_mode)
+     {
+Index: gimp-2.10.6/app/plug-in/gimppluginmanager-file.c
+===================================================================
+--- gimp-2.10.6.orig/app/plug-in/gimppluginmanager-file.c
++++ gimp-2.10.6/app/plug-in/gimppluginmanager-file.c
+@@ -142,13 +142,13 @@ gimp_plug_in_manager_register_save_handl
+   gimp_plug_in_procedure_set_file_proc (file_proc,
+                                         extensions, prefixes, NULL);
+ 
+-  if (file_procedure_in_group (file_proc, GIMP_FILE_PROCEDURE_GROUP_SAVE))
++  //if (file_procedure_in_group (file_proc, GIMP_FILE_PROCEDURE_GROUP_SAVE))
+     {
+       if (! g_slist_find (manager->save_procs, file_proc))
+         manager->save_procs = g_slist_prepend (manager->save_procs, file_proc);
+     }
+ 
+-  if (file_procedure_in_group (file_proc, GIMP_FILE_PROCEDURE_GROUP_EXPORT))
++  //if (file_procedure_in_group (file_proc, GIMP_FILE_PROCEDURE_GROUP_EXPORT))
+     {
+       if (! g_slist_find (manager->export_procs, file_proc))
+         manager->export_procs = g_slist_prepend (manager->export_procs, file_proc);
+Index: gimp-2.10.6/app/widgets/gimpsavedialog.c
+===================================================================
+--- gimp-2.10.6.orig/app/widgets/gimpsavedialog.c
++++ gimp-2.10.6/app/widgets/gimpsavedialog.c
+@@ -244,14 +244,20 @@ gimp_save_dialog_set_image (GimpSaveDial
+   /* Priority of default type/extension for Save:
+    *
+    *   1. Type of last Save
+-   *   2. .xcf (which we don't explicitly append)
++   *   2. Type of last Export
++   *   3. Type of import source
++   *   4. .xcf (which we don't explicitly append)
+    */
+ 
+   ext_file = gimp_image_get_file (image);
+ 
+   if (ext_file)
+     g_object_ref (ext_file);
+-  else
++  if (! ext_file)
++    ext_file = gimp_image_get_exported_file (image);
++  if (! ext_file)
++    ext_file = gimp_image_get_imported_file (image);
++  if (! ext_file)
+     ext_file = g_file_new_for_uri ("file:///we/only/care/about/extension.xcf");
+ 
+   gimp_image_get_xcf_version (image, FALSE, &rle_version,

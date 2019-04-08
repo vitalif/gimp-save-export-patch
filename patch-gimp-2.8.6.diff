@@ -1,0 +1,78 @@
+This patch unites Save & Export in Gimp back
+
+Shame on you Gimp authors for splitting "Save" and "Export" features
+and for arguing that everyone who dislikes the new behaviour is an
+idiot and should use MSPAINT instead of their super-duper professional
+GIMP!
+
+First part -- enable all formats in both save and export:
+
+--- gimp-2.8.6.orig/app/plug-in/gimppluginmanager-file.c
++++ gimp-2.8.6/app/plug-in/gimppluginmanager-file.c
+@@ -136,13 +136,13 @@ gimp_plug_in_manager_register_save_handl
+   gimp_plug_in_procedure_set_file_proc (file_proc,
+                                         extensions, prefixes, NULL);
+ 
+-  if (file_procedure_in_group (file_proc, FILE_PROCEDURE_GROUP_SAVE))
++  //if (file_procedure_in_group (file_proc, FILE_PROCEDURE_GROUP_SAVE))
+     {
+       if (! g_slist_find (manager->save_procs, file_proc))
+         manager->save_procs = g_slist_prepend (manager->save_procs, file_proc);
+     }
+ 
+-  if (file_procedure_in_group (file_proc, FILE_PROCEDURE_GROUP_EXPORT))
++  //if (file_procedure_in_group (file_proc, FILE_PROCEDURE_GROUP_EXPORT))
+     {
+       if (! g_slist_find (manager->export_procs, file_proc))
+         manager->export_procs = g_slist_prepend (manager->export_procs, file_proc);
+
+Second part -- do not suggest saving a non-xcf image into xcf format,
+even on the first save click.
+
+--- gimp-2.8.6.orig/app/actions/file-commands.c
++++ gimp-2.8.6/app/actions/file-commands.c
+@@ -228,6 +228,9 @@ file_save_cmd_callback (GtkAction *actio
+     return;
+ 
+   uri = gimp_image_get_uri (image);
++  if (! uri)
++    uri = gimp_image_get_imported_uri (image);
++  uri = g_strdup (uri);
+ 
+   switch (save_mode)
+     {
+@@ -348,6 +351,8 @@ file_save_cmd_callback (GtkAction *actio
+     {
+       gimp_display_close (display);
+     }
++
++  g_free (uri);
+ }
+ 
+ void
+
+Third part - suggest the same type as import/export by default.
+
+--- gimp-2.8.6.orig/app/widgets/gimpfiledialog.c	2012-12-06 03:41:06.000000000 +0400
++++ gimp-2.8.6.orig/app/widgets/gimpfiledialog.c	2013-11-08 22:53:03.095326498 +0400
+@@ -571,11 +571,19 @@ gimp_file_dialog_set_save_image (GimpFil
+       /* Priority of default type/extension for Save:
+        *
+        *   1. Type of last Save
+-       *   2. .xcf (which we don't explicitly append)
++       *   2. Type of last Export
++       *   3. Type of import source
++       *   4. .xcf (which we don't explicitly append)
+        */
+       ext_uri = gimp_image_get_uri (image);
+ 
+       if (! ext_uri)
++        ext_uri = gimp_image_get_exported_uri (image);
++
++      if (! ext_uri)
++        ext_uri = gimp_image_get_imported_uri (image);
++
++      if (! ext_uri)
+         ext_uri = "file:///we/only/care/about/extension.xcf";
+     }
+   else /* if (export) */
